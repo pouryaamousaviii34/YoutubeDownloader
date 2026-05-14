@@ -1,0 +1,48 @@
+name: Download YouTube Video and Save to Repository
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  download-and-commit:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yt-dlp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          pip3 install yt-dlp
+
+      - name: Read YouTube URL
+        id: read_url
+        run: |
+          URL=$(cat url.txt | head -n 1)
+          echo "youtube_url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Download Best Quality Video
+        run: |
+          mkdir -p videos
+          yt-dlp \
+            --format "bestvideo+bestaudio/best" \
+            --output "videos/%(title)s.%(ext)s" \
+            --merge-output-format mp4 \
+            ${{ steps.read_url.outputs.youtube_url }}
+
+      - name: Commit and Upload Video to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add videos/
+          git diff --cached --quiet || git commit -m "Auto-download best quality video from YouTube"
+          git push
