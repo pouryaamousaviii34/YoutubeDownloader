@@ -1,48 +1,39 @@
-name: Download YouTube Video and Save to Repository
+name: دانلود ویدیو و ذخیره در ریپو
 
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:   # اجرای دستی از تب Actions
 
 jobs:
   download-and-commit:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
     steps:
-      - name: Checkout Repository
+      - name: دریافت کدهای ریپو
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install yt-dlp
+      - name: نصب yt-dlp
         run: |
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip
           pip3 install yt-dlp
 
-      - name: Read YouTube URL
-        id: read_url
-        run: |
-          URL=$(cat url.txt | head -n 1)
-          echo "youtube_url=$URL" >> $GITHUB_OUTPUT
-
-      - name: Download Best Quality Video
+      - name: دانلود ویدیو
         run: |
           mkdir -p videos
           yt-dlp \
             --format "bestvideo+bestaudio/best" \
             --output "videos/%(title)s.%(ext)s" \
             --merge-output-format mp4 \
-            ${{ steps.read_url.outputs.youtube_url }}
+            "$(head -n1 url.txt)"
 
-      - name: Commit and Upload Video to Repository
+      - name: کامیت و push
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add videos/
-          git diff --cached --quiet || git commit -m "Auto-download best quality video from YouTube"
+          git diff --cached --quiet || git commit -m "دانلود خودکار ویدیو"
           git push
