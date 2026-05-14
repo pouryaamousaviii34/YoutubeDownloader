@@ -111,7 +111,7 @@ jobs:
           URLS_RAW="${YT_URLS}"
           read -ra URL_LIST <<< "$URLS_RAW"
           TOTAL_URLS=${#URL_LIST[@]}
-          QUALITY="720"
+          QUALITY="best"
           FORMAT="bestvideo[height>=720]+bestaudio/bestvideo[height>=720]*+bestaudio*/best[height>=720]/best"
           SPLIT_MB=45
           SPLIT_BYTES=$(( SPLIT_MB * 1024 * 1024 ))
