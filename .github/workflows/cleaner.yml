@@ -1,23 +1,24 @@
----
-name: 03- 🗑 حذف تمام دانلودها
+name: 03 - 🗑️ حذف ویدیوها
 
 on:
   workflow_dispatch:
     inputs:
-      warning:
-        description: '⚠️ WARNING: This will DELETE ALL files inside downloads/ folder. Click "Run workflow" only if you are sure.'
-        required: false
-        default: 'Read this warning before proceeding'
+      confirm_delete:
+        description: '⚠️ با زدن این دکمه تمام ویدیوها حذف میشود'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
-  delete:
+  delete-videos:
+    name: "🗑️ حذف ویدیوها"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    if: ${{ github.event.inputs.confirm_delete == 'true' }}
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -28,65 +29,75 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-      - name: Clean and recreate downloads folder
+      - name: Delete and recreate videos folder
         run: |
           BRANCH="${GITHUB_REF_NAME}"
 
-          echo "AVASAM (https://avasam.ir) - Cleaning downloads folder"
-          echo ""
+          echo "========================================"
+          echo "🗑️ در حال حذف پوشه videos..."
+          echo "========================================"
 
-          if [ -d "downloads" ]; then
-            echo "Removing downloads folder..."
-            git rm -rf downloads/ 2>/dev/null || true
-            rm -rf downloads/ 2>/dev/null || true
+          if [ -d "videos" ]; then
+            rm -rf videos
+            echo "✅ پوشه videos حذف شد"
           else
-            echo "Downloads folder doesn't exist, will create it."
+            echo "ℹ️ پوشه videos وجود نداشت"
           fi
 
-          mkdir -p downloads
-          printf '## empty\nfor start go Action tab and use left side workflows\n' > downloads/README.md
+          mkdir -p videos
 
-          git add -f downloads/README.md
+          echo "# سلام" > videos/README.md
+          echo "هنوز هیچ ویدیویی اینجا نیست" >> videos/README.md
+          echo "" >> videos/README.md
+          echo "---" >> videos/README.md
 
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-            exit 0
+          echo "✅ پوشه videos با README.md خالی ایجاد شد"
+
+          git add -f videos/
+
+          if ! git diff --cached --quiet; then
+            git commit -m "[AVASAM] حذف تمام ویدیوها [skip ci]"
+
+            PUSH_RETRY=0
+            while [ $PUSH_RETRY -lt 5 ]; do
+              PUSH_RETRY=$((PUSH_RETRY + 1))
+              if timeout 60 git push origin HEAD:"$BRANCH"; then
+                echo ""
+                echo "========================================"
+                echo "✅ تمام ویدیوها با موفقیت حذف شدند!"
+                echo "========================================"
+                break
+              else
+                echo "Push failed, retry $PUSH_RETRY/5..."
+                sleep 3
+                git fetch origin "$BRANCH"
+                git reset --hard origin/"$BRANCH"
+                rm -rf videos
+                mkdir -p videos
+                echo "# سلام" > videos/README.md
+                echo "هنوز هیچ ویدیویی اینجا نیست" >> videos/README.md
+                echo "" >> videos/README.md
+                echo "---" >> videos/README.md
+                git add -f videos/
+                git diff --cached --quiet || git commit -m "[AVASAM] حذف تمام ویدیوها [skip ci]"
+              fi
+            done
+          else
+            echo "ℹ️ تغییری برای commit وجود ندارد"
           fi
 
-          git commit -m "[AVASAM] Clean downloads folder [skip ci]"
-
-          echo "Pushing changes..."
-
-          RETRY=0
-          MAX_RETRIES=5
-          while [ $RETRY -lt $MAX_RETRIES ]; do
-            RETRY=$((RETRY + 1))
-
-            git fetch origin "$BRANCH" --quiet 2>/dev/null || true
-            git rebase origin/"$BRANCH" 2>/dev/null || {
-              git rebase --abort 2>/dev/null || true
-              git reset --hard HEAD~1 2>/dev/null || true
-              git pull --rebase origin "$BRANCH" 2>/dev/null || true
-
-              rm -rf downloads/ 2>/dev/null || true
-              mkdir -p downloads
-              printf '## empty\nfor start go Action tab and use left side workflows\n' > downloads/README.md
-              git add -f downloads/README.md
-              git commit -m "[AVASAM] Clean downloads folder [skip ci]" 2>/dev/null || true
-            }
-
-            if timeout 60 git push origin HEAD:"$BRANCH" 2>&1; then
-              echo ""
-              echo "=========================================="
-              echo "✅ Downloads folder cleared successfully!"
-              echo "AVASAM (https://avasam.ir)"
-              echo "=========================================="
-              exit 0
-            else
-              echo "Push failed, retry $RETRY/$MAX_RETRIES..."
-              sleep $((2 + RANDOM % 5))
-            fi
-          done
-
-          echo "❌ Failed to push after $MAX_RETRIES attempts"
-          exit 1
+  not-confirmed:
+    name: "❌ لغو شد"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm_delete != 'true' }}
+    steps:
+      - name: Show cancellation message
+        run: |
+          echo ""
+          echo "========================================"
+          echo "❌ عملیات لغو شد"
+          echo "========================================"
+          echo ""
+          echo "⚠️ برای حذف ویدیوها باید تیک تأیید را بزنید"
+          echo ""
+          echo "========================================"
