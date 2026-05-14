@@ -3,7 +3,7 @@ name: دانلود ویدیو و ذخیره در ریپو
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:   # اجرای دستی از تب Actions
+  workflow_dispatch:
 
 jobs:
   download-and-commit:
@@ -15,16 +15,22 @@ jobs:
       - name: دریافت کدهای ریپو
         uses: actions/checkout@v4
 
-      - name: نصب yt-dlp
+      - name: نصب yt-dlp و Deno (نیازمندی جدید)
         run: |
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip
-          pip3 install yt-dlp
+          pip3 install "yt-dlp[default]"
+          # نصب Deno برای پشتیبانی بهتر از چالش‌های جاوااسکریپت
+          curl -fsSL https://deno.land/install.sh | sudo DENO_INSTALL=/usr/local sh
+
+      - name: ساخت فایل کوکی از Secret
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
 
       - name: دانلود ویدیو
         run: |
           mkdir -p videos
           yt-dlp \
+            --cookies cookies.txt \
             --format "bestvideo+bestaudio/best" \
             --output "videos/%(title)s.%(ext)s" \
             --merge-output-format mp4 \
